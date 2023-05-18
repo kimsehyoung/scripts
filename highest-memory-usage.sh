@@ -2,12 +2,34 @@
 
 # https://www.shellscript.sh/examples/getopt/
 
+MEMORY_REALTIME_FILE="realtime_highest_memory_usage.txt"
+MEMORY_RECORD_FILE="highest_memory_usage.txt"
+MAX_MEMORY_USAGE=0.0
+
+handle_signal() {
+	EXIT_STATUS=$?
+	if [ -f ${MEMORY_REALTIME_FILE} ]; then
+    	rm ${MEMORY_REALTIME_FILE}
+	fi
+
+    if [ "$1" == "SIGINT" ]; then
+        trap - EXIT
+		echo -e "[$(date +%Y.%m.%d-%H:%M:%S)] The highest memory usage is ${MAX_MEMORY_USAGE}Gi until now (Ctrl+C)"
+        exit 130
+    elif [ ${EXIT_STATUS} == 0 ]; then
+		echo -e "[$(date +%Y.%m.%d-%H:%M:%S)] The highest memory usage is ${MAX_MEMORY_USAGE}Gi for ${DURATION}." | tee -a ${MEMORY_RECORD_FILE}
+    else
+		echo -e "Error ${EXIT_STATUS}"
+    fi
+}
+trap 'handle_signal EXIT' EXIT
+trap 'handle_signal SIGINT' SIGINT
+
 help() {
 	echo -e "This measures the highest memory usage during a specific duration on a linux host."
 	echo -e "Options:"
-    echo -e "-i, --interval\n\tInterval in seconds to measure memory usage\n\tunit: s\n"
-    echo -e "-d, --duration\n\tDuration to measure memory usage\n\tunit: s, m, h, d\n"
-
+	echo -e "-i, --interval\n\tInterval in seconds to measure memory usage\n\tunit: s\n"
+	echo -e "-d, --duration\n\tDuration to measure memory usage\n\tunit: s, m, h, d\n"
 	exit 1
 }
 
@@ -62,7 +84,6 @@ measure_memory_usage() {
 			;;
 		*h)
 			COUNT=$((${DURATION/h}*60*60/${INTERVAL/s}))
-			echo "hours"
 			;;
 		*d)
 			COUNT=$((${DURATION/d}*60*60*24/${INTERVAL/s}))
@@ -79,17 +100,15 @@ measure_memory_usage() {
         exit 1
     fi
 
-	MAX_MEMORY_USAGE=0.0
 	for (( i=0; i<$COUNT; i++ ))
 	do
 		sleep ${INTERVAL}
 		MEMORY_USAGE=$(free -h | awk 'NR==2{print $3}' | tr -d [:alpha:][:blank:])
 		if [[ $(echo "${MAX_MEMORY_USAGE} > ${MEMORY_USAGE}" | bc) -eq true ]]; then
 			MAX_MEMORY_USAGE=${MEMORY_USAGE}
+			echo -e "[$(date +%Y.%m.%d-%H:%M:%S)] The highest memory usage is ${MAX_MEMORY_USAGE}Gi for ${DURATION}." > ${MEMORY_REALTIME_FILE}
 		fi
 	done
-
-	echo -e "[$(date +%Y.%m.%d-%H:%M:%S)] The highest memory usage is ${MAX_MEMORY_USAGE}Gi for ${DURATION}." | tee -a memory_usage.txt
 }
 
 parse_arguments $@
