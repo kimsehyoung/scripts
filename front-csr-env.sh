@@ -14,8 +14,12 @@ do
   if [ -z "$name" ] || [ "${name#\#}" != "$name" ]; then
     continue
   fi
-  # Check if environment variable is set
-  # If bash: if [ -n "${!name}" ]; then
+  ## Check if environment variable is set
+  # Bash shell
+  # if [ -n "${!name}" ]; then
+  #   value="${!name}"
+  # fi
+  # Bourne shell
   if [ -n "$(eval echo \$$name)" ]; then
     value=$(eval echo \$$name)
   fi
